@@ -1,0 +1,350 @@
+{
+        "_id" : ObjectId("59959f583bd92a492fba6418"),
+        "containerid" : "263A40C2-8353-11E7-96CC-12B968665064",																								#containerid each container has its UUID this is used as the key for the blockchain
+				"userid" : "DAD27036-275F-11E7-B6AE-572822B9D08F",																										#userid - This is the ID of the user who created the container
+				"groupid" : "DAD27036-275F-11E7-B6AE-572822B9D08F",																										#groupid - this is the groupid to which the container belongs
+        "type" : "location",																																									#type - identifies the type of container (may not be needed)
+        "cpu" : "989096a57336",																																								#cpu - which printer is attacted to this location and printing will be passed to this device for processing.
+        "cdata" : {																																														#cdata - every container can contain data that is specific to its purpose
+                "path" : "B98A2C98-4C71-11E7-B803-EE860BDBEE62,DECA4FF0-7E0E-11E7-8B11-C97C68665064",						#path - the hiracical order of the locations the top first
+                "parent" : "DECA4FF0-7E0E-11E7-8B11-C97C68665064",																							#parent - this is this containers parent
+                "pos" : "7",																																										#pos - Ordering Number
+                "location" : "Receiving Goods",																																	#location - name
+                "utilities" : "46946A06-8E83-11E7-9491-9E0C4C4A0AEF"																						#utilites - set of tools the application can utilise while in this location. (porbably better attribs)		
+        },
+        "attribs" : {																																													#attribs - these are the system attributes of this container these will be processed by pots
+                "run" : {																																												#run - object that contains things to be processed in order
+                        "other" : [																																								#other [array] - if you are not part of the access group you will run these microservices 
+                                {
+                                        "microservice" : "updatelog",																								#microservice - this is the UUID of the microservice (if its not a UUID its a system specific function)
+                                        "data" : "Scanned",																													#data - this is passed to the microservice it can either be a string/variable/json object
+                                        "sequence" : 1																															#sequence - order in which the microservice are exicuted and ordered in the array
+                                },
+                                {
+																				"microservice" : "changeuserlocation",																			
+                                        "data" : "None",
+                                        "sequence" : 2
+                                }
+                        ],
+                        "access" : [																																							#access [array] - if you are part of this group you many run these microservices
+                                {
+                                        "data" : "Scanned",
+                                        "microservice" : "updatelog",
+                                        "sequence" : "1"
+                                },
+                                {
+                                        "data" : "containerid",
+                                        "microservice" : "changeuserlocation",
+                                        "sequence" : "2"
+                                },
+                                {
+                                        "microservice" : "C8CF1BEE-4D13-11E7-BE5F-0C6F1B433B3E",										#microservice - this is the UUID of the microservice (if its not a UUID its a system specific function)
+                                        "sequence" : "3",
+                                        "description" : "Scan KO Code",																							#human readable description of the microservice
+                                        "data" : {																																	#data - this json object is passed to the microservice 
+                                                "next" : "89BE2F4C-506C-11E7-AE0F-AFE859AE2E83",											#next - is the next microservice this function will call after execution
+                                                "description" : "Scan KO Code",																				
+                                                "loadlayout" : "A84362E8-6A70-11E7-98A4-084EF57E7A0C"									#loadlayout - this is the container that contains information about how to display the information
+                                        }
+                                }
+                        ]
+                },
+                "access" : {																																										#access - this is the object that holds the access information
+                        "groups" : [																																						#groups [array] - list of groups that have access to attribs->run->access
+                                "194BA3E4-7B86-11E7-B404-8F255FF2CFAC"																					#groupid - this is the group id, the userid must exist inside this group
+                        ]
+                },
+                "microservice" : "location",																																		#microservice - can be found in location ??  Not sure if these are still required
+                "collection" : "location"																																				#collection - use collection to find these microservices ??  Not sure if these are still required
+        }
+}
+
+
+### Microservice C8CF1BEE-4D13-11E7-BE5F-0C6F1B433B3E
+
+helper('C8CF1BEE-4D13-11E7-BE5F-0C6F1B433B3E' => sub {
+	## Description : Add KO-Serial Number To Batch
+	## location_id : 87B5FEA6-4D00-11E7-B51C-A2226CF4AFCE
+	## Loads Layout : A84362E8-6A70-11E7-98A4-084EF57E7A0C
+	## Layout json : attribs.run.access.data.loadlayout
+	## Access json : attribs.access.groups
+
+	print "Add KO-Serial Number To Batch\n";
+	my ($c,$session,$container,$data) = @_;
+	print "Microservice : C8CF1BEE-4D13-11E7-BE5F-0C6F1B433B3E\n";
+	print "NextProcess : $data->{'next'}\n";
+	print "Container : \n";
+	print "Data : \n";
+	print "loading layout\n";
+	my $outdata;
+	my $cdata;
+	my $clayout;
+	if ($data->{'loadlayout'}) {
+		($cdata,$clayout) = $c->loadlayout($data,"rw");																															#loadlayout - takes layout and data and cross matches them, rw makes the data read/writable and user can change
+	}
+	
+	$c->dbsession->update({'session-key' => $session->{'session-key'}},{'$set' => {'nextprocess' => $data, 'appdata' => {'cdata' => $cdata,'clayout' => $clayout,'processname' => 'Add New Asset'}}});
+	$outdata->{'message'} = $data->{'description'};
+	return $outdata;
+});
+
+
+### Microservice 
+
+helper('89BE2F4C-506C-11E7-AE0F-AFE859AE2E83' => sub {
+  ## Description : Scan Serial Numbers to generate containers
+  my ($c,$session,$container,$data) = @_;
+	my $outdata;
+	print "Microservice : 89BE2F4C-506C-11E7-AE0F-AFE859AE2E83\n";
+	print "NextProcess : $data->{'next'}\n";
+	print "Check Data Recieved $data->{'containerid'} against $data->{'match'}\n";
+	if ($data->{'match'}) {
+		my $reg = qr/$data->{'match'}/;
+		if ($data->{'containerid'} =~ $reg) {
+			$session->{'appdata'}->{'cdata'}->{$data->{'save'}} = $data->{'containerid'};
+			
+			$c->dbsession->update({'session-key' => $session->{'session-key'}},{'$set' => {'nextprocess' => $data,'appdata' => $session->{'appdata'}}});
+			$outdata->{'message'} = $data->{'message'};
+		} else {
+			$outdata->{'message'} = 'Object Scanned was not recognised ('.$data->{'match'}.')';
+		}
+	}
+
+	return $outdata;
+});
+
+
+## LoadLayout
+
+## Layouts are important as they normalise the data so not to create an floating point exceptions.  So all data has a default value regardless to the data being processed.
+## If data being processed has a matching id then then default vaule is replaced by the actual value
+## If data being processed does not have a matching id then the data is not passed.
+## if the layout has a id that does not exist in the processed data then the default value is passed.
+
+{
+        "_id" : ObjectId("596be4dcf2d93b41548e7ec2"),
+        "containerid" : "A84362E8-6A70-11E7-98A4-084EF57E7A0C",
+        "userid" : "DAD63F5C-233D-11E7-9D38-587922B9D08F",
+        "groupid" : "DAD63F5C-233D-11E7-9D38-587922B9D08F",
+        "createdOn" : "2017-07-16T22:12:44",
+        "attribs" : {
+                "template" : "A84362E8-6A70-11E7-98A4-084EF57E7A0C",
+                "description" : "Request Data",
+                "collection" : "container",
+                "run" : {
+                        "other" : [
+                                {
+                                        "sequence" : "1",
+                                        "microservice" : "6032FC50-5988-11E7-A2E9-E75FBA7F2206",
+                                        "description" : "Request Data",
+                                        "data" : {
+                                                "message" : "Please Choose from the following",
+                                                "next" : "634004AC-6A12-11E7-A390-422FF57E7A0C",
+                                                "dataset" : "BDA8B784-6A0F-11E7-9F9E-C3EAF47E7A0C"
+                                        }
+                                }
+                        ]
+                }
+        },
+        "clayout" : {
+                "layout" : [
+                        "background,image,background,outsourcebg.png",																					# Default data - id, type, label, default
+                        "client,text,Client,TierOne",
+                        "logo,image,Logo,tierone.png",
+                        "ko,text,KO,TBA",
+                        "serial,text,Serial No.,TBA",
+                        "make,text,Make,TBA",
+                        "model,text,Model,TBA",
+                        "motherboard,switch,Motherboard,true",
+                        "tft,switch,TFT,true",
+                        "kb,switch,Keyboard,true",
+                        "memory,switch,Memory,true",
+                        "odd,switch,ODD,true",
+                        "hdd,switch,HDD,false",
+                        "case,switch,Cabinet/Plastic,true",
+                        "wifi,switch,WIFI,true",
+                        "wwan,switch,WWAN,false",
+                        "lan,switch,LAN,true",
+                        "cpu,switch,CPU,true",
+                        "fan,switch,FAN,true",
+                        "psu,switch,PSU,true",
+                        "usb,switch,USB,true",
+                        "audio,switch,Audio,true",
+                        "comment,edit,Comment,"
+                ]
+        }
+}
+
+
+
+
+### Utilities
+
+{
+        "_id" : ObjectId("59abf2f854a7c84975e9fde7"),
+        "containerid" : "46946A06-8E83-11E7-9491-9E0C4C4A0AEF",
+        "userid" : "DAD63F5C-233D-11E7-9D38-587922B9D08F",
+        "groupid" : "DAD63F5C-233D-11E7-9D38-587922B9D08F",        
+        "createdOn" : "2017-09-03T12:18:00",																																		#createdOn - date container was created
+        "attribs" : {
+                "description" : "Load Utilities",																																#description - Human readable description
+                "collection" : "container",																																			#collection - where to find this container
+                "type" : "layout"																																								#type - type of container (layout) ??
+        },
+        "clayout" : {																																														#clayout - if a layout is contained it will look for an object called clayout
+                "layout" : [																																										#layout [array] - ordered list of microservice and button information and return value when pressed
+                        "FC6781F0-8961-11E7-ADA8-FB892B643344,button,Print KO Number,9002",											microservice, type, description, return
+                        "6F384530-897A-11E7-8B4B-40972B643344,button,Print Serial Number,9002",
+                        "1A4D2A04-8EF2-11E7-9EBC-FE764C4A0AEF,button,Reconcile Assets,9002",
+                        "8BBAF2E0-8284-11E7-B3BA-1CA2DDE4B0D4,button,Change KO Number,9002",
+                        "DD965AE6-7F91-11E7-B6AC-7EA12B643344,button,Delete Serial Number,9002",
+                        "0D4370FA-9881-11E7-B0B8-A4C4CAD04192,button,RMA Report,9002"
+                ]
+        }
+}
+
+
+## applets
+
+{
+        "_id" : ObjectId("59abf2f854a7c84975e9fdd9"),
+        "containerid" : "FC6781F0-8961-11E7-ADA8-FB892B643344",
+        "userid" : "DAD63F5C-233D-11E7-9D38-587922B9D08F",
+        "groupid" : "DAD63F5C-233D-11E7-9D38-587922B9D08F",
+        "createdOn" : "2017-09-03T12:18:00",
+        "attribs" : {
+                "collection" : "container",																																			#collection - where to find this container
+                "description" : "Print KO Number",																															#description - Human readable description
+                "type" : "applet",																																							#type - type of container (applet) ?? mainly used for searching for all applets
+                "template" : "FC6781F0-8961-11E7-ADA8-FB892B643344",																						#template - how to display the data on the screen
+                "run" : {
+                        "other" : [
+                                {
+                                        "sequence" : "1",
+                                        "microservice" : "FE8E68AA-8000-11E7-BD56-AE4B2B643344",
+                                        "description" : "Get Input Data",
+                                        "data" : {
+                                                "next" : "FE8E68AA-8000-11E7-BD56-AE4B2B643344",								#microservice - same as parent - returns answer back to the parent
+                                                "message" : "Enter the following",
+                                                "loadlayout" : "720425EE-8962-11E7-85BA-6D8A2B643344",					#loadlayout - this is the container that contains information about how to display the information
+                                                "printtemplate" : "BEAC847C-8962-11E7-8ACC-B58A2B643344"				#printtemplate - this containes the layout information for the printer
+                                        }
+                                }
+                        ]
+                }
+        }
+}
+
+
+## microservice 
+
+helper('FE8E68AA-8000-11E7-BD56-AE4B2B643344' => sub {
+        ## Function - Print QRCODE
+        ## Function Loop on themselves must start with ID/ID
+        ## containerid : FE8E68AA-8000-11E7-BD56-AE4B2B643344
+        ## Loads Layout : 78AA6EAE-8006-11E7-9525-114D2B643344
+        ## Layout json : attribs.run.access.data.loadlayout
+        ## Access json : attribs.access.groups
+
+	## Requires : container/FE8E68AA-8000-11E7-BD56-AE4B2B643344
+	## Requires : attribs.template : FE8E68AA-8000-11E7-BD56-AE4B2B643344
+
+        my ($c,$session,$container,$data,$indata) = @_;
+        print "Microservice : FE8E68AA-8000-11E7-BD56-AE4B2B643344\n";
+	print "Indata\n";
+	$data->{'process'} = 'true';
+	my $clayout;
+	my $ctemplate;
+	my $outdata;
+
+	if (($data->{'next'} eq 'FE8E68AA-8000-11E7-BD56-AE4B2B643344') && (!$data->{'containerid'})) {
+		if ($data->{'loadlayout'}) {
+			($clayout,$ctemplate) = $c->loadlayout($data,"rw");
+		}
+	        $outdata->{'display'}->{'cdata'} = $clayout;
+	        $outdata->{'display'}->{'clayout'} = $ctemplate;
+        	$outdata->{'display'}->{'url'} = "FE8E68AA-8000-11E7-BD56-AE4B2B643344/B";
+		$outdata->{'message'} = "Please update the following";
+		$c->dbsession->update({'session-key' => $session->{'session-key'}},{'$set' => {'nextprocess' => $data}});
+	} else {
+
+	if ($data->{'containerid'} eq 'B9000') {
+		print "Save\n";
+		$indata->{'copies'} = $indata->{'copies'} || 1;
+#		for (my $i=1; $i <= $indata->{'copies'}; $i++) {	
+			my $printtemplate = $c->container->find_one({'containerid' => $session->{'nextprocess'}->{'printtemplate'}});
+			my $printjob = $printtemplate->{'template'};
+			# my $qrcode = "https://pot.ec/container/$newcontainer->{'containerid'}";		
+			$outdata->{'message'} = $c->pushremote($session,$printjob,$indata);
+#		}
+                $outdata->{'process'} = 'false';
+                $outdata->{'finished'} = "yes";
+		$c->dbsession->update({'session-key' => $session->{'session-key'}},{'$unset' => {'nextprocess' => "",'clayout' => "",'containertemplate' => ""}});
+		
+	} elsif ($data->{'containerid'} eq 'B9001') {
+		print "Cancel\n";
+                $outdata->{'process'} = 'false';
+                $outdata->{'finished'} = "yes";
+		$c->dbsession->update({'session-key' => $session->{'session-key'}},{'$unset' => {'nextprocess' => "",'clayout' => "",'containertemplate' => ""}});
+		#send finish
+	}
+	}
+
+        return $outdata;
+
+});
+
+
+
+
+## loadlayout
+
+{
+        "_id" : ObjectId("59abf2f854a7c84975e9fde1"),
+        "containerid" : "720425EE-8962-11E7-85BA-6D8A2B643344",
+        "userid" : "DAD63F5C-233D-11E7-9D38-587922B9D08F",
+        "groupid" : "DAD63F5C-233D-11E7-9D38-587922B9D08F",
+        "createdOn" : "2017-09-03T12:18:00",
+        "attribs" : {
+                "description" : "Input for KO Label Information",
+                "type" : "Layout"
+        },
+        "clayout" : {
+                "layout" : [
+                        "text,text,KO Number,KO Number",
+                        "ko,edit,KO No.,KO-",
+                        "copies,edit,No.Copies,1"
+                ]
+        }
+}
+
+## printtemplate
+
+{
+        "_id" : ObjectId("59abf2f854a7c84975e9fddf"),
+        "containerid" : "BEAC847C-8962-11E7-8ACC-B58A2B643344",
+        "userid" : "DAD63F5C-233D-11E7-9D38-587922B9D08F",
+        "groupid" : "DAD63F5C-233D-11E7-9D38-587922B9D08F",
+        "createdOn" : "2017-09-03T12:18:00",
+        "attribs" : {
+                "type" : "Label Template",
+                "description" : "Template for KO Number"
+        },
+        "template" : {
+                "template" : "TierOne_6215",																																	#template - open office template file
+                "size" : "6215",																																							#size - paper size / label size as defined in print manager
+                "barcode" : {																																									#barcode - searches template of a label called barcode
+                        "indatastring" : "ko"																																	#indatastring - searches for string and replace it with data
+                },
+                "data" : [																																										#data ?? more explination needed
+                        {
+                                "search" : "barcode",																													#search - search for barcode
+                                "indatastring" : "ko"																													#indatastring - replace it with this
+                        }
+                ]
+        }
+}
+
+
+
+
